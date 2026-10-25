@@ -1,0 +1,46 @@
+ticker,name,status_in_period,effective_from,effective_to,snapshot_date,source
+AADI,PT Adaro Andalan Indonesia Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+ADMR,PT Adaro Minerals Indonesia Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+ADRO,Adaro Energy Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+AKRA,AKR Corporindo Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+AMMN,PT Amman Mineral Internasional Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+AMRT,Sumber Alfaria Trijaya Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+ANTM,Aneka Tambang (Persero) Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+ASII,Astra International Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+BBCA,Bank Central Asia Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+BBNI,Bank Negara Indonesia Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+BBRI,PT Bank Rakyat Indonesia (Persero) Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+BBTN,Bank Tabungan Negara (Persero) Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+BMRI,Bank Mandiri (Persero) Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+BRPT,Barito Pacific Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+BUMI,Bumi Resources Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+CPIN,Charoen Pokphand Indonesia Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+CUAN,PT Petrindo Jaya Kreasi Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+DEWA,Darma Henwa Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+EMTK,Elang Mahkota Teknologi Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+ESSA,Surya Esa Perkasa Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+EXCL,PT XL Axiata Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+GOTO,PT GoTo Gojek Tokopedia Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+HRTA,PT Hartadinata Abadi Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+ICBP,Indofood CBP Sukses Makmur Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+INCO,Vale Indonesia Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+INDF,Indofood Sukses Makmur Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+INDY,Indika Energy Tbk,baru,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+INKP,Indah Kiat Pulp & Paper Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+ISAT,Indosat Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+ITMG,Indo Tambangraya Megah Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+JPFA,JAPFA Comfeed Indonesia Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+KLBF,Kalbe Farma Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+MAPI,Mitra Adiperkasa Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+MBMA,PT Merdeka Battery Materials Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+MDKA,PT Merdeka Copper Gold Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+MEDC,Medco Energi Internasional Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+NCKL,PT Trimegah Bangun Persada Tbk,baru,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+PGAS,Perusahaan Gas Negara (Persero) Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+PGEO,PT Pertamina Geothermal Energy Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+PTBA,Tambang Batubara Bukit Asam Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+SCMA,Surya Citra Media Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+TLKM,PT Telkom Indonesia (Persero) Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+UNTR,United Tractors Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+UNVR,Unilever Indonesia Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
+WIFI,PT Solusi Sinergi Digital Tbk,tetap,2026-08-03,2026-10-30,2026-10-25,kontan.co.id/indeks-lq45
