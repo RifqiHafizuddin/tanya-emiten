@@ -34,8 +34,8 @@ Checked 2026-10-25. Each number says where it came from. **Official** = the vend
 | | Over limit | No overage on Hobby; enforcement not described → sample traces near the cap | Official (behaviour unstated) |
 | **GitHub Actions** | Public repo | Standard runners free (no cap stated) | Official, [billing docs](https://docs.github.com/en/billing/concepts/product-billing/github-actions) |
 | | Private repo (Free) | 2,000 min / month, 500 MB artifacts, 10 GB cache per repo | Official |
-| **PaddleOCR hosted API** | Free quota | 3,000 pages per model per day (Baidu AI Studio quota page; may be outdated), with a form to request more. A newer claim of 20,000 pages/day is unconfirmed | [ai.baidu.com quota doc](https://ai.baidu.com/ai-doc/AISTUDIO/Mml7n69e7) (3rd-party-ish; official page returned 403) |
-| | Per request | ≤ 1,000 PDF pages, URL ≤ 200 MB, upload ≤ 50 MB (async API) | Same source |
+| **PaddleOCR hosted API** | Free quota | **20,000 pages / day** | Account, confirmed by the owner 2026-10-25 |
+| | Per job | No file-size limit; **keep ≤ 100 pages per job** to avoid timeouts; pages beyond that are ignored | Account, confirmed by the owner 2026-10-25 |
 | | Access / terms | Needs an AI Studio access token (`PADDLEOCR_ACCESS_TOKEN`); account and data-use terms not readable without signing in ⚠ | [paddleocr.ai docs](https://www.paddleocr.ai/latest/version3.x/inference_deployment/serving/paddleocr_official_api/cli.html) |
 | **Kaggle** | GPU | ≈ 30 h / week (floats, resets Saturday 00:00 UTC); 12 h per session | 3rd-party; owner confirms in Kaggle settings ⚠ |
 | **Colab (free)** | GPU | No published quota; availability "varies over time"; ≈ 12 h max session | Official FAQ wording + 3rd-party |

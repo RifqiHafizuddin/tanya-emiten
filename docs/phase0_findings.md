@@ -7,9 +7,9 @@ Checked 2026-10-25 by Claude for the owner. This file answers the 8 items in §4
 | # | Topic | Finding | Options (recommended first) |
 |---|---|---|---|
 | A | IDX access (§14) | IDX's Terms of Use **forbid web scraping/crawling** | **Annual reports: scripted, polite download from company IR sites** (owner's choice, 2026-10-25), after a per-site robots/terms check; citations link to the IR copy (D11 adjusted). **Quarterly XLSX/XBRL exist only on IDX**, so they stay manual unless IDX grants permission (see item 2) |
-| F | DB size (acceptance box) | Projection **≈ 395 MB (79%)** for D1 + D2, **over 70%** | See §7. Recommended: `halfvec` + expression GIN index (§14 default) → ≈ 46% |
-| B | Back-end host (D9) | HF now requires **PRO ($9/mo) to create Docker Spaces**, which conflicts with D6. The owner's Space [`rifqih/tanya-emiten`](https://huggingface.co/spaces/rifqih/tanya-emiten) is a **Gradio** Space on **ZeroGPU** (`zero-a10g`), not Docker | See §5: Gradio-on-ZeroGPU (keep the Space) or Render (Docker) |
-| C | LQ45 snapshot (D1) | The current list ends **2026-10-30**. The next quarterly list should be announced ~2026-10-26 and take effect ~2026-11-02 | Freeze the Aug–Oct list now (committed), or wait about a week for the Nov list |
+| F | DB size (acceptance box) | Projection **≈ 395 MB (79%)** for D1 + D2, **over 70%** | **Decided 2026-10-25 by the owner: option 1, `halfvec(384)` + expression GIN index (≈ 46%); revisit at MVP 3** |
+| B | Back-end host (D9) | HF now requires **PRO ($9/mo) to create Docker Spaces**, which conflicts with D6. The owner's Space [`rifqih/tanya-emiten`](https://huggingface.co/spaces/rifqih/tanya-emiten) is a **Gradio** Space on **ZeroGPU** (`zero-a10g`), not Docker | The owner also has [`rifqih/churn-mlops`](https://huggingface.co/spaces/rifqih/churn-mlops): **`sdk: docker`, `cpu-basic`**, public, currently `RUNTIME_ERROR`. New Spaces can't be created on the free account, but this one can be renamed in Settings and reused. **Decided 2026-10-25 by the owner: rename `churn-mlops` → `tanya-emiten-api` and use it for the FastAPI back end; D9 unchanged** |
+| C | LQ45 snapshot (D1) | The current list ends **2026-10-30**. The next quarterly list should be announced ~2026-10-26 and take effect ~2026-11-02 | **Decided 2026-10-25 by the owner: freeze the 3 Aug – 30 Oct 2026 list** (as committed) |
 | D | Price source (D21) | IDX daily summary can't be scripted (terms); yfinance is "personal use only" | Decide at sign-off; see item 8 |
 | E | Gemini model names (D39, D40) | Free models are known; their RPM/RPD are visible only in AI Studio | Owner pastes the AI Studio rate-limit table; then pick `small`/`answer`/`judge` |
 
@@ -80,9 +80,18 @@ Full table in `docs/free_tier.md`. Material findings:
 
 | Role | Model | Why |
 |---|---|---|
-| `answer` | `gemini-3.5-flash-lite` | Only Gemini model with a usable daily cap (15 RPM / 500 RPD) |
-| `small` | Gemma 4 31B | 30 RPM / 14.4K RPD. Its 16K TPM is fine for short routing and translation prompts. Keeps the answer model's daily budget for answers |
-| `judge` | Gemma 4 31B | Different family from `answer` (D40). 14.4K RPD covers full golden-set runs. The ≥ 85% owner-agreement gate still decides whether it is trusted |
+| `answer` | `gemini-3.5-flash-lite` | Only Gemini model with a usable daily cap (15 RPM / 500 RPD). Smoke test 2026-10-25: structured output OK in 1.4 s (entities + language correct, 71 tokens) |
+| `small` | `gemini-3.1-flash-lite` | Separate quota from `answer`. Free per the pricing page; its RPM/RPD appear in AI Studio after first use (record then). Gemma 4 31B was tried first but **failed the smoke test**: empty structured output, then `503 UNAVAILABLE` (high demand). Too unreliable on the request path |
+| `judge` | `gemma-4-31b-it` | Different family from `answer` (D40). 14.4K RPD covers full golden-set runs. Runs offline, so retries with backoff absorb the 503s. Structured output still unproven: parse JSON from text if schema mode keeps failing. The ≥ 85% owner-agreement gate still decides whether it is trusted |
+
+**Judge alternative raised by the owner: Groq `qwen/qwen3.8-27b`.**
+- Groq's published base limits (Developer plan): 30 RPM / 1K RPD / 8K TPM / **200K TPD**. Free-tier numbers appear only on the account's [limits page](https://console.groq.com/settings/limits).
+- **For:** a different provider *and* model family from `answer`, which is the strongest D40 fit. It's OpenAI-compatible, so it slots straight into the existing `JUDGE_PROVIDER` / `JUDGE_BASE_URL` / `JUDGE_API_KEY` variables.
+- **Against:** 200K tokens/day caps judging at ~130–200 calls/day if each prompt stays at ~1–1.5K tokens (claim + quote, or answer + reference). Full golden-set runs would need judgment caching and possibly two days.
+- Proposed: Groq Qwen as `judge`, Gemma 4 31B as the backup judge; `small` stays on Gemini so the request path uses a single provider.
+- Pending: free-tier numbers and a smoke test.
+
+The key sees these model ids: `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`, `gemini-3.5-flash`, `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash`, `gemini-2.5-flash(-lite)`, `gemini-3-flash-preview`, `gemma-4-31b-it`, `gemma-4-26b-a4b-it`.
 
 Notes:
 - `global_questions_per_day` = 250.
@@ -98,7 +107,15 @@ Notes:
 
 ## 6. PaddleOCR hosted API — **OPEN (owner has a key; quota and terms to read from the account)**
 
-- 2026-10-25: the owner has a PaddleOCR API key (goes in `.env` as `PADDLEOCR_API_KEY`).
+- 2026-10-25: the owner has a PaddleOCR API key (`PADDLEOCR_API_KEY`, endpoint `PADDLEOCR_API_URL` = `https://paddleocr.aistudio-app.com/api/v2/ocr/jobs`).
+- Owner-confirmed account limits: **20,000 pages/day**, no file-size limit, but **keep each job ≤ 100 pages** to avoid timeouts; pages beyond that are ignored. The OCR step must split PDFs into ≤ 100-page jobs. Better still, send only the pages that need OCR (< 200 chars, or containing charts/tables).
+- Budget check: 45 reports × ~200 OCR-worthy pages ≈ 9k pages, which fits in one day's quota.
+- **Timing (2026-10-25, model `PaddleOCR-VL-1.6`, async jobs API):**
+  - 10 ICBP narrative pages with photos: **69 s wall time, 6.9 s/page**
+  - 2 financial-highlights pages: 39 s, so each job carries roughly 20–30 s of fixed overhead
+  - Batch pages into ≤ 100-page jobs. Sequentially, ~9k pages at ~5 s ≈ 12–13 h, which suits a resumable overnight job
+- **Output:** each page returns `markdown`, `prunedResult` (layout blocks), `inputImage` and `outputImages`. Text came back clean. Tables come back as HTML `<table>` markup inside the markdown. **Chart → table conversion was not confirmed** on these pages; check on chart-heavy pages at the start of MVP 1.
+- **Recommendation:** OCR backend = **hosted API** (decision for sign-off). Colab/Kaggle GPU stays as the fallback.
 
 - A hosted API exists through Baidu AI Studio (paddleocr.com redirects to aistudio.baidu.com/paddleocr; the page returns 403 to non-browser fetches). Access needs an AI Studio token.
 - Quota: Baidu's quota doc says **3,000 pages per model per day** with an increase-request form; a newer "20,000 pages/day" claim is unconfirmed. Per request: ≤ 1,000 pages, ≤ 50 MB upload.
@@ -171,6 +188,6 @@ Recommendation: keep the §14 default (**no prices**) for now and revisit before
 |---|---|
 | `docs/phase0_findings.md`, `docs/free_tier.md`, `corpus/lq45_snapshot.csv` | Written (items 2, 3, 6, 7 open, with fallbacks) |
 | Repo on GitHub, `uv` project, `.gitignore`, `.env.example`, CI | Repo [RifqiHafizuddin/tanya-emiten](https://github.com/RifqiHafizuddin/tanya-emiten) exists (public, empty). `.gitignore` and `.env.example` written locally. Local git link, `uv` project and CI not started |
-| Supabase/HF/Vercel/Langfuse projects | Owner reports accounts are set up. **`.env` was not found in the project folder**, so nothing was verified against the accounts |
+| Supabase/HF/Vercel/Langfuse projects | `.env` has DB, Supabase, LLM and PaddleOCR keys (2026-10-25); Langfuse keys and `IP_HASH_SALT` still empty. **`DATABASE_URL` uses the direct host `db.<ref>.supabase.co`, which is IPv6-only** (no A record). It is unreachable from this network and likely from HF Spaces → replace it with the **Session pooler** URI (IPv4). HF: `churn-mlops` (Docker, cpu-basic) to be renamed `tanya-emiten-api` by the owner; D9 unchanged |
 | 3 sample reports + XBRL, measurements, OCR timing | Reports downloaded from IR sites and measured (§7). XBRL/XLSX samples: IDX-only (item 2). OCR timing: waiting for `PADDLEOCR_API_KEY` in `.env` |
-| `LLMClient` and e5 smoke tests | Waiting for `.env` and decision B; counts as product code, so held per the owner's instruction |
+| `LLMClient` and e5 smoke tests | Scratch Gemini check done (see §5). `LLMClient` itself and e5-in-the-Space are product code, held until sign-off |
