@@ -1,0 +1,56 @@
+[project]
+name = "tanya-emiten"
+version = "0.1.0"
+description = "Cited answers about LQ45 fundamentals from IDX annual reports"
+requires-python = ">=3.12"
+dependencies = [
+    "pdfplumber>=0.11",
+    "pymupdf>=1.24",
+    "pillow>=10",
+    "requests>=2.32",
+    "psycopg[binary]>=3.2",
+    "pydantic>=2.7",
+    "pyyaml>=6",
+    "tokenizers>=0.20",
+    "truststore>=0.10",
+    "google-genai>=1.0",
+    "fastapi>=0.162.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.6",
+    "pytest>=8",
+    "httpx>=0.28.1",
+]
+# Heavy (torch); only ingestion `index` and the API need it, so CI skips it.
+embed = ["sentence-transformers>=3", "torch>=2.4"]
+
+# Bulk embedding runs on the owner's Windows laptop GPU; Linux (CI, the Space image) keeps the CPU wheel.
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu126", marker = "sys_platform == 'win32'" },
+    { index = "pytorch-cpu", marker = "sys_platform == 'linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

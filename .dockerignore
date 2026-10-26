@@ -1,0 +1,13 @@
+# Only what the API image needs is copied explicitly; keep secrets and bulky data out of the build context.
+.env
+.env.*
+.venv/
+data/
+corpus/pdf/
+corpus/inbox/
+corpus/xbrl/
+node_modules/
+web/
+eval/
+tests/
+**/__pycache__/

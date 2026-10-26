@@ -89,7 +89,11 @@ Full table in `docs/free_tier.md`. Material findings:
 - **For:** a different provider *and* model family from `answer`, which is the strongest D40 fit. It's OpenAI-compatible, so it slots straight into the existing `JUDGE_PROVIDER` / `JUDGE_BASE_URL` / `JUDGE_API_KEY` variables.
 - **Against:** 200K tokens/day caps judging at ~130–200 calls/day if each prompt stays at ~1–1.5K tokens (claim + quote, or answer + reference). Full golden-set runs would need judgment caching and possibly two days.
 - Proposed: Groq Qwen as `judge`, Gemma 4 31B as the backup judge; `small` stays on Gemini so the request path uses a single provider.
-- Pending: free-tier numbers and a smoke test.
+- **Smoke test 2026-10-25:**
+  - One synthetic claim-vs-quote check (English claim, Bahasa quote that contradicts it) with strict `json_schema` output
+  - HTTP 200 in **1.3 s**, valid JSON, correct verdict (`supported: false`), 139 tokens, no reasoning tokens
+  - Response headers on the owner's free key: **RPD 1,000, TPM 8,000** (equal to the published base). TPD is not in the headers; 200K per the docs
+- The `judge` row above is replaced by Groq `qwen/qwen3.8-27b`, with Gemma 4 31B as backup (owner to confirm at sign-off).
 
 The key sees these model ids: `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`, `gemini-3.5-flash`, `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash`, `gemini-2.5-flash(-lite)`, `gemini-3-flash-preview`, `gemma-4-31b-it`, `gemma-4-26b-a4b-it`.
 
@@ -101,7 +105,11 @@ Notes:
   1. **Render free web service (Docker)**. Same FastAPI container, but only ~512 MB RAM, so e5-small has to run via ONNX/int8 (same model and dimensions, so D14 stays) rather than PyTorch. Sleeps after 15 min idle. *Recommended:* it changes only the host and keeps every other decision.
   2. **Gradio Space on free ZeroGPU** (2 allowed; the owner already has one). It's free and has much more RAM than Render. But the SDK is Gradio, not Docker: `app.py` would start FastAPI with Gradio mounted inside, and whether ZeroGPU Spaces serve custom routes and SSE that way needs a ~20-line spike. Gradio is a dependency the stack doesn't list.
   3. **HF PRO at $9/month**. Simplest, but breaks D6 (zero cost).
-- **Supabase** 500 MB DB / 1 GB storage / 5 GB egress / pause after 7 days. These match the spec.
+- **Supabase** 500 MB DB / 1 GB storage / 5 GB egress / pause after 7 days. These match the spec. Project checked 2026-10-25 via the Session pooler (`aws-1-ap-northeast-1`, Tokyo):
+  - **Postgres 17.6**; **pgvector 0.8.0 available, not yet enabled** (`halfvec` needs ≥ 0.7). The first migration runs `create extension vector`.
+  - DB currently **12 MB**. `public` already holds 5 unrelated sample tables: `customers`, `orders`, `order_items`, `payments`, `products` (~1.1 MB). They don't clash with §7 table names. **Owner decision 2026-10-25: leave them for now.**
+  - **Spec correction (§6.3):** this Postgres *does* ship an `indonesian` text-search config (Snowball stemmer), alongside `simple`. D16/§6.3 stay on `simple`; `indonesian` is worth adding to the MVP 1 lexical ablation.
+  - The direct host is IPv6-only; use the Session pooler URI everywhere (laptop, Space, Actions).
 - **Vercel Hobby** 100 GB transfer, 1M invocations, non-commercial only. The repo must be under a personal GitHub account, not an org.
 - **Langfuse Hobby** 50k units/month, 30-day retention.
 
@@ -188,6 +196,6 @@ Recommendation: keep the §14 default (**no prices**) for now and revisit before
 |---|---|
 | `docs/phase0_findings.md`, `docs/free_tier.md`, `corpus/lq45_snapshot.csv` | Written (items 2, 3, 6, 7 open, with fallbacks) |
 | Repo on GitHub, `uv` project, `.gitignore`, `.env.example`, CI | Repo [RifqiHafizuddin/tanya-emiten](https://github.com/RifqiHafizuddin/tanya-emiten) exists (public, empty). `.gitignore` and `.env.example` written locally. Local git link, `uv` project and CI not started |
-| Supabase/HF/Vercel/Langfuse projects | `.env` has DB, Supabase, LLM and PaddleOCR keys (2026-10-25); Langfuse keys and `IP_HASH_SALT` still empty. **`DATABASE_URL` uses the direct host `db.<ref>.supabase.co`, which is IPv6-only** (no A record). It is unreachable from this network and likely from HF Spaces → replace it with the **Session pooler** URI (IPv4). HF: `churn-mlops` (Docker, cpu-basic) to be renamed `tanya-emiten-api` by the owner; D9 unchanged |
+| Supabase/HF/Vercel/Langfuse projects | `.env` has DB, Supabase, LLM and PaddleOCR keys (2026-10-25); Langfuse keys and `IP_HASH_SALT` still empty. `DATABASE_URL` now uses the Session pooler (IPv4); the read-only check passed (§5). HF: `churn-mlops` (Docker, cpu-basic) to be renamed `tanya-emiten-api` by the owner; D9 unchanged |
 | 3 sample reports + XBRL, measurements, OCR timing | Reports downloaded from IR sites and measured (§7). XBRL/XLSX samples: IDX-only (item 2). OCR timing: waiting for `PADDLEOCR_API_KEY` in `.env` |
 | `LLMClient` and e5 smoke tests | Scratch Gemini check done (see §5). `LLMClient` itself and e5-in-the-Space are product code, held until sign-off |

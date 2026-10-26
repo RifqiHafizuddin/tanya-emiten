@@ -1,0 +1,70 @@
+universe:
+  index: LQ45
+  snapshot_file: corpus/lq45_snapshot.csv
+annual_reports:
+  fiscal_years: [2025]           # D2; add 2024 at MVP 3
+  sources_file: corpus/sources.yaml   # D43: company IR sites
+fetch:
+  request_delay_seconds: 5
+  user_agent: "TanyaEmiten research bot (+https://github.com/RifqiHafizuddin/tanya-emiten)"
+  timeout_seconds: 300
+parsing:
+  min_text_chars: 200            # below this a page goes to OCR
+  ocr_backend: api               # D47; fallback: local_gpu
+  ocr_model: PaddleOCR-VL-1.6
+  ocr_max_pages_per_job: 100     # D47
+  ocr_max_job_mb: 3              # D55: larger uploads time out; jobs are halved until they fit
+  crop_format: webp
+  crop_max_width: 1400
+  vision_fallback_below: 0.80    # D27: attach the real crop when ocr_confidence is lower
+  vision_max_images: 2
+chunking:
+  strategy: section              # D29; fallback: page
+  min_tokens: 300
+  max_tokens: 450
+  overlap_tokens: 50
+  tables_own_chunk: true
+  contextual_header: true
+  expand_neighbours: 1           # small-to-big: chunks added on each side
+retrieval:
+  query_transforms: [entity_split, bilingual]   # D31
+  k_lexical: 20
+  k_dense: 20
+  rrf_k: 60
+  final_k: 6                     # D34
+  context_token_budget: 4000
+  max_per_page: 2
+  max_per_company_when_unscoped: 2   # D33
+  min_score: null                # set from eval data, not guessed
+  reranker: null                 # D16: only if eval justifies
+embedding:
+  model: intfloat/multilingual-e5-small
+  dims: 384
+llm:
+  models:                        # D48
+    small: gemini-3.1-flash-lite
+    answer: gemini-3.5-flash-lite
+    judge: qwen/qwen3.8-27b      # via JUDGE_* env (Groq)
+    judge_backup: gemma-4-31b-it
+  daily_request_caps:            # guardrail 7: below each free-tier RPD (docs/free_tier.md)
+    gemini-3.5-flash-lite: 450   # 500 RPD
+    gemini-3.1-flash-lite: 450   # limit appears in AI Studio after first use; conservative until recorded
+    qwen/qwen3.8-27b: 900        # Groq 1,000 RPD
+    gemma-4-31b-it: 10000        # 14.4K RPD
+  prompt_versions: {system: 2, router: 1, planner: 1, entity: 1, translate: 1, judge: 1}
+  temperature: 0
+  max_output_tokens: 900
+  max_retries_schema: 2
+agent:                           # D35, D36
+  max_tool_calls: 4
+  max_replans: 1
+  max_repairs: 1
+limits:
+  questions_per_visitor_per_day: 20
+  global_questions_per_day: 250  # answer model: 500 RPD free tier, ~1.5 calls per question
+eval:
+  pr_subset_size: 25
+forecast:                        # MVP 4
+  horizon_quarters: 4
+  backtest_origins: 8
+  interval: 0.8

@@ -8,6 +8,7 @@ Checked 2026-10-25. Each number says where it came from. **Official** = the vend
 | | RPM / TPM / RPD per model | `gemini-3.5-flash-lite`: **15 RPM / 250K TPM / 500 RPD**<br>`gemini-3.6-flash`: **5 / 250K / 20**<br>`gemini-3.8-flash`: **5 / 250K / 20**<br>Gemma 4 31B: **30 / 16K / 14.4K**<br>The table lists only models the project has used, so the 2.5 models and 3.1 Flash-Lite are not shown | Account: AI Studio rate-limit page, project "Capstone", pasted by the owner 2026-10-25 |
 | | Scope | Limits are **per project, not per key**. "Capstone" is already in use (peak 434/500 RPD on 3.5 Flash-Lite and a rate-limit error in the last 28 days) → use a **separate Google Cloud project** for Tanya Emiten | Official, [rate-limits page](https://ai.google.dev/gemini-api/docs/rate-limits) |
 | | Data use | Free-tier content "used to improve our products" | Official, pricing page |
+| **Groq (free)**, judge | `qwen/qwen3.8-27b` | **1,000 RPD, 8,000 TPM** (from response headers on the owner's key, 2026-10-25); 30 RPM and 200K TPD per the [docs](https://console.groq.com/docs/rate-limits) base table. Cached tokens don't count; 429 + `retry-after` when exceeded | Account headers + official docs |
 | **Supabase (free)** | DB size | 500 MB per project | Official, [pricing](https://supabase.com/pricing) |
 | | File storage | 1 GB | Official |
 | | Egress | 5 GB + 5 GB cached egress / month | Official |
@@ -15,6 +16,9 @@ Checked 2026-10-25. Each number says where it came from. **Official** = the vend
 | | Projects | 2 active | Official |
 | | Pausing | After 7 days of inactivity → weekly keep-alive Action | Official |
 | | pgvector | Available as the `vector` extension on all plans (not on the pricing page; standard Supabase extension) | Supabase docs; confirm when the owner enables it |
+| **Neon (free)**, Postgres since D54 | DB size | **1 GB per project** (raised from 0.5 GB on 2026-10-02; older docs pages still say 0.5 GB) | Official, [changelog 2026-10-02](https://neon.com/docs/changelog/2026-10-02) |
+| | Projects | Up to 100, each with its own compute, storage and egress | Official, same changelog |
+| | Compute | Scales to zero after 5 min idle (first query after that is slower); 100 CU-hours per project / month per the FAQ | Official, [FAQ](https://neon.com/faqs/free-plan-limits-and-quotas) |
 | **Hugging Face Space** | CPU Basic hardware | 2 vCPU, 16 GB RAM, 50 GB disk (not persistent) | Official, [Spaces overview](https://huggingface.co/docs/hub/spaces-overview) |
 | | ⚠ Creating Docker Spaces | **"Gradio and Docker Spaces run on compute and require a paid plan to create: PRO for personal accounts"** (PRO = $9/month). Free accounts can host Static Spaces and up to 2 Gradio Spaces on ZeroGPU | Official, Spaces overview + [pricing](https://huggingface.co/pricing) |
 | | Sleep timeout | Sleeps "after a period of time if unused". No number on the current page (it was 48 h historically) | Official (no number) |
@@ -45,4 +49,5 @@ Checked 2026-10-25. Each number says where it came from. **Official** = the vend
 
 - `limits.global_questions_per_day`: the 3.8/3.6 Flash models allow 20 RPD, so they can't serve public answers. If `answer` = `gemini-3.5-flash-lite` (500 RPD), budget ~1.5 answer calls per question (repairs, schema retries) and leave headroom → **250**. See `phase0_findings.md` §5.
 - Langfuse: at ~5–10 observations per answer, 50k units/month ≈ 5–10k answers/month. Fine for a demo.
-- Supabase 500 MB is the binding limit; see the DB projection in `phase0_findings.md` §7.
+- Supabase 500 MB was the binding limit (`phase0_findings.md` §7). Measured at MVP 1: ≈ 4.4 KB per chunk after rebuilding the FTS index, 45 reports ≈ 93k chunks ≈ 410 MB → Postgres moved to Neon's 1 GB (D54). Supabase keeps Storage; its keep-alive still matters.
+- PaddleOCR: keep each job ≤ 3 MB as well as ≤ 100 pages (larger uploads time out; seen on AMMN), D55.

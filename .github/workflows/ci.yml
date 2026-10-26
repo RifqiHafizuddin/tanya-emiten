@@ -1,0 +1,27 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --python 3.12
+      - run: uv run ruff check .
+      - run: uv run pytest -q
+
+  space-image:
+    # The Hugging Face Space builds this Dockerfile; build it here too so a broken image fails before deploy.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t tanya-emiten-api .
+      - name: Smoke test (/health answers without secrets)
+        run: |
+          docker run -d -p 7860:7860 --name api tanya-emiten-api
+          for i in $(seq 1 30); do curl -sf localhost:7860/health && exit 0; sleep 2; done
+          docker logs api; exit 1

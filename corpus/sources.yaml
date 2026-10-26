@@ -1,0 +1,74 @@
+# Annual-report sources per ticker (D43). `pdf` pins a URL verified by hand per fiscal year; otherwise the fetcher
+# discovers candidates from `pages` (IR listing pages first) and keeps the first that passes the content check.
+# Each host's robots.txt is checked on every run.
+AADI:
+  pages: ["https://www.adaroindonesia.com/pages/view/laporan-tahunan.html"]
+  pdf: {2025: "https://adaroindonesia.com/app/webroot/upload/files/Laporan%20Tahunan/AADI%20Annual%20Report%202025.pdf"}
+ADMR: {pages: ["https://www.alamtriminerals.com/", "https://www.adarominerals.id/"]}
+ADRO: {pages: ["https://www.alamtri.com/"]}
+AKRA: {pages: ["https://www.akr.co.id/annual-report"]}
+AMMN:
+  pages: ["https://www.amman.co.id/annual-report"]
+  pdf: {2025: "https://www.amman.co.id/rails/active_storage/blobs/proxy/eyJfcmFpbHMiOnsiZGF0YSI6NTEzNywicHVyIjoiYmxvYl9pZCJ9fQ==--8894e69222f3c75d05cccfe4d7b692e23e5b362a/Annual%20Report%202025%20-%20PT%20Amman%20Mineral%20Internasional%20Tbk.pdf?disposition=inline"}
+AMRT: {pages: ["https://corporate.alfamart.co.id/", "https://alfamart.co.id/"]}
+ANTM: {pages: ["https://www.antam.com/en/company-report/annual-report"]}
+ASII: {pages: ["https://www.astra.co.id/en/investor-relations/annual-report", "https://www.astra.co.id/"]}
+BBCA: {pages: ["https://www.bca.co.id/en/tentang-bca/Hubungan-Investor/laporan-presentasi/Laporan-Tahunan"]}
+BBNI:
+  pages: ["https://www.bni.co.id/en-us/investors/financial-reports"]
+  pdf: {2025: "https://www.bni.co.id/Portals/1/BNI/Perusahaan/HubunganInvestor/Docs/BNI-AR2025-Indonesia.pdf"}
+BBRI:
+  pages: ["https://www.ir-bri.com/ar.html"]
+  pdf: {2025: "https://www.ir-bri.com/misc/AR/AR2025-EN.pdf"}
+BBTN:
+  pages: ["https://www.btn.co.id/en/About/Investor-Relation/Company-Report/Annual-Report"]
+  pdf: {2025: "https://www.btn.co.id/-/media/Files/Laporan-Perusahaan/laporan-tahunan/2026/AR-2025-BBTN-ENG-Lengkap-290926.pdf"}
+BMRI: {pages: ["https://www.bankmandiri.co.id/en/web/ir/annual-reports"]}
+BRPT: {pages: ["https://www.barito-pacific.com/", "https://www.barito.co.id/"]}
+BUMI: {pages: ["https://www.bumiresources.com/"]}
+CPIN:
+  pages: ["https://cp.co.id/en/?p=72"]
+  pdf: {2025: "https://cp.co.id/wp-content/uploads/2026/04/Annual-Report-CPIN-2025.pdf"}
+CUAN: {pages: ["https://www.petrindo.co.id/"]}
+DEWA: {pages: ["https://www.ptdh.co.id/", "https://www.darmahenwa.com/"]}
+EMTK: {pages: ["https://www.emtek.co.id/"]}
+ESSA: {pages: ["https://www.essa.id/"]}
+EXCL: {pages: ["https://www.xlsmart.co.id/", "https://www.xl.co.id/"]}
+GOTO: {pages: ["https://www.gotocompany.com/investor-relations/en/annual-reports"]}
+HRTA: {pages: ["https://www.hartadinata.com/"]}
+ICBP:
+  pages: ["https://www.indofoodcbp.com/investor-relation/annual-report"]
+  pdf: {2025: "https://www.indofoodcbp.com/uploads/annual/ICBP_2025AR_final.pdf"}
+INCO:
+  pages: ["https://www.vale.com/indonesia/documents-and-reports"]
+  pdf: {2025: "https://vale.com/documents/d/guest/pt-vale-indonesia-tbk-laporan-tahunan-2025-1"}
+INDF: {pages: ["https://www.indofood.com/investor-relation/annual-report"]}
+INDY:
+  pages: ["https://www.indikaenergy.co.id/annual/2025-annual-report/"]
+  pdf: {2025: "https://www.indikaenergy.co.id/wp-content/uploads/2026/04/INDY-AR-2025.pdf"}
+INKP: {pages: ["https://www.app.co.id/", "https://www.indahkiat.co.id/"]}
+ISAT: {pages: ["https://ioh.co.id/en/ioh-investor-document"]}
+ITMG:
+  pages: ["https://www.itmg.co.id/investor/company-information/annual-report"]
+  pdf: {2025: "https://www.itmg.co.id/files/investor/ITM_Annual%20Report_2025_full.pdf"}
+JPFA: {pages: ["https://www.japfacomfeed.co.id/annual-report"]}
+KLBF: {pages: ["https://www.kalbe.co.id/"]}
+MAPI: {pages: ["https://www.map.co.id/investor/annual-sustainability-reports/"]}
+MBMA:
+  pages: ["https://merdekabattery.com/en/investor/reports/annual-report"]
+  pdf: {2025: "https://assets.merdekabattery.com/dist/documents/MBMA_AR_2025_30%20April.pdf"}
+MDKA:
+  pages: ["https://merdekacoppergold.com/en/investors/reports/"]
+  pdf: {2025: "https://merdekacoppergold.com/wp-content/uploads/2026/04/MDKA_2026-04-30_AR-2025-1.pdf"}
+MEDC: {pages: ["https://www.medcoenergi.com/en/publication/annual-reports/"]}
+NCKL: {pages: ["https://tbpnickel.com/"]}
+PGAS: {pages: ["https://ir.pgn.co.id/financial-information", "https://pgn.co.id/financial-information"]}
+PGEO: {pages: ["https://www.pge.pertamina.com/en/report/2025"]}
+PTBA: {pages: ["https://www.ptba.co.id/laporan/laporan-tahunan"]}
+SCMA: {pages: ["https://www.scm.co.id/"]}
+TLKM: {pages: ["https://www.telkom.co.id/sites/investor-relations/en_US/page/reports-1027"]}
+UNTR: {pages: ["https://www.unitedtractors.com/en/annual-report/"]}
+UNVR:
+  pages: ["https://www.unilever.co.id/en//investors/annual-financial-and-sustainability-report/annual-reports/"]
+  pdf: {2025: "https://www.unilever.co.id/files/annual-reports-2025.pdf"}
+WIFI: {pages: ["https://www.surge.co.id/", "https://www.solusisinergidigital.co.id/"]}

@@ -94,6 +94,34 @@ Other findings that shape the design:
 | D41 | User feedback | Thumbs up/down + optional reason, linked to the trace; thumbs-down answers become golden-set candidates after owner review | §6.6 |
 | D42 | Prompts | Versioned files in the repo; prompt version logged on every trace and eval run; changes go through PRs and the eval gate | §6.5 |
 
+### Phase 0 sign-off (owner, 2026-10-25)
+
+These amend the rows above where they conflict. Evidence is in `docs/phase0_findings.md`.
+
+| # | Area | Decision | Amends |
+|---|---|---|---|
+| D43 | Annual-report source | Polite scripted download from **company IR sites**, after a per-site robots.txt/terms check. IDX's terms forbid scraping, so nothing is scripted against idx.co.id. Citations link to the IR copy | D11, guardrail 1 |
+| D44 | LQ45 snapshot | Frozen list effective 2026-08-03 → 2026-10-30 (`corpus/lq45_snapshot.csv`). LQ45 is rebalanced quarterly | D1, §5 |
+| D45 | Back-end host | Existing Docker Space `rifqih/tanya-emiten-api` (renamed from `churn-mlops`; new Docker Spaces need PRO) | D9 |
+| D46 | Vector storage | `halfvec(384)` + expression GIN index on `to_tsvector('simple', text)` (no stored tsvector). Revisit at MVP 3 | §4.1, §7 |
+| D47 | OCR backend | Hosted PaddleOCR API (`PaddleOCR-VL-1.6`), ≤ 100 pages per job, 20k pages/day. Colab GPU is the fallback | D15 |
+| D48 | Models | `answer` = `gemini-3.5-flash-lite`; `small` = `gemini-3.1-flash-lite`; `judge` = Groq `qwen/qwen3.8-27b`, backup `gemma-4-31b-it`. Dedicated Google project recommended | D13, D39, D40 |
+| D49 | Price source | None until MVP 3 | D21 |
+| D50 | Golden set | Claude drafts every question with expected pages (marked draft); the owner reviews, edits or rejects them before they count | §10 MVP 1b, §14 |
+| D51 | Quarterly XLSX/XBRL | IDX-only; source decided at the start of MVP 2 (manual, or written permission from IDX) | D19 |
+| D52 | DB connection | Supabase Session pooler URI (IPv4) everywhere; the direct host is IPv6-only | §4 |
+| D53 | Crops | Store WebP crops of **tables and charts** (bbox) plus whole-page crops of **scanned pages** only. Text-only claims show the verified quote and a link to the source PDF page. Every-page crops (~1.5 GB at 800 px) don't fit the 1 GB Storage limit | D11, §6.1, MVP 1a |
+
+### MVP 1 decisions (owner, 2026-10-26)
+
+| # | Area | Decision | Amends |
+|---|---|---|---|
+| D54 | Database host | All Postgres tables on **Neon** free (1 GB per project since 2026-10-02, pgvector). Supabase keeps **Storage** (figure images) only. Measured: 45 reports ≈ 93k chunks ≈ 410 MB after rebuilding the FTS index (≈ 4.4 KB/chunk), i.e. 82% of Supabase's 500 MB but 41% of Neon's 1 GB. The weekly keep-alive pings Supabase (`SUPABASE_DB_URL`), whose Storage pauses with the project | D10, D52 |
+| D55 | Parser | Owner's hybrid-parser design: every page read twice (pdfplumber characters + PaddleOCR-VL layout); PaddleOCR decides regions, reading order and headings; the PDF's characters fill them, OCR text only where the PDF has none (flagged); table area = PaddleOCR's box, grid from ruled lines (≥ 60% cover) else PaddleOCR's table (≥ 80% of the PDF's characters, numbers repaired from the PDF) else whitespace columns; OCR jobs ≤ 100 pages and ≤ 3 MB; a per-page quality check (character coverage, OCR-only pages, table agreement with PaddleOCR). Records stay ~300–450-token chunks (§6.2), not 3-page windows, because e5-small reads 512 tokens | D15, D47, §6.1, §6.2 |
+| D56 | Figure images | WebP crops of **charts and diagrams** only (PaddleOCR `chart` blocks, and `image` blocks holding text from the PDF). Tables are text chunks; photos, portraits and whole scanned pages get no image. Tables were 91% of crop bytes under D53 | D53 |
+| D57 | Chart values | A chart's values (PaddleOCR chart → table) enter its chunk only when ≥ 80% of its numbers appear in the PDF's own text inside the chart box (years excluded). Below that the chunk keeps the caption and says the values are unverified; the image crop is still shown. Measured on 6 reports: 44 of 70 charts pass; failures are raster charts and unlabelled bars whose values PaddleOCR estimates or invents | D55, guardrail 2 |
+| D58 | UI styling | Tailwind CSS (no component library) | MVP 1d |
+
 ## 3. Guardrails (hard rules)
 
 1. **Polite, permitted data access only.** Check `robots.txt` and the site's terms before scripting any download. ≥ 5 s between requests, honest User-Agent, small batches, resume from where it stopped. **If IDX's bot protection blocks scripted access, do not work around it**: no headless-browser evasion, CAPTCHA solving or proxy rotation. Fall back to the owner downloading files by hand into `corpus/inbox/`, and say so in the README.
