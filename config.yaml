@@ -51,7 +51,7 @@ llm:
     gemini-3.1-flash-lite: 450   # limit appears in AI Studio after first use; conservative until recorded
     qwen/qwen3.8-27b: 900        # Groq 1,000 RPD
     gemma-4-31b-it: 10000        # 14.4K RPD
-  prompt_versions: {system: 4, router: 1, planner: 1, entity: 1, translate: 1, judge: 1}
+  prompt_versions: {system: 4, router: 1, planner: 1, entity: 1, translate: 1, judge_supported: 1, judge_correct: 1}
   temperature: 0
   max_output_tokens: 900
   max_retries_schema: 2

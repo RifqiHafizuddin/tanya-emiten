@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from functools import cache
 
 import requests
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from backend import tracing
 from backend.config import ROOT, config, env
@@ -102,11 +102,20 @@ class OpenAICompatAdapter:
         if schema:
             body["response_format"] = {"type": "json_schema", "json_schema": {
                 "name": schema.__name__, "schema": schema.model_json_schema(), "strict": False}}
-        r = requests.post(f"{self.base_url}/chat/completions", json=body, timeout=120,
-                          headers={"Authorization": f"Bearer {self.api_key}"})
+        for _ in range(10):
+            r = requests.post(f"{self.base_url}/chat/completions", json=body, timeout=120,
+                              headers={"Authorization": f"Bearer {self.api_key}"})
+            wait = float(r.headers.get("retry-after") or 0)
+            if r.status_code == 429 and wait <= 60:  # a per-minute limit is waited out; a daily one is not
+                time.sleep(wait + 1)
+            elif r.status_code == 400 and "json_validate_failed" in r.text:  # output broke the schema: ask again
+                time.sleep(1)
+            else:
+                break
         if r.status_code == 429:
             raise QuotaExceeded(f"{model}: provider rate limit ({r.headers.get('retry-after')}s)")
-        r.raise_for_status()
+        if r.status_code >= 400:
+            raise requests.HTTPError(f"{r.status_code} from {model}: {r.text[:300]}", response=r)
         d = r.json()
         return d["choices"][0]["message"]["content"] or "", d["usage"]["prompt_tokens"], d["usage"]["completion_tokens"]
 
@@ -135,6 +144,29 @@ def generate(role: str, system: str, user: str, schema: type[BaseModel] | None =
             v = json.loads(hit[0])
             return LLMResult(v["text"], schema.model_validate_json(v["text"]) if schema else None, model,
                              v["in"], v["out"], cached=True)
+    # §6.5: output that fails the schema (e.g. JSON cut off mid-string) is retried with the validation error.
+    prompt, parsed = user, None
+    for schema_try in range(config()["llm"]["max_retries_schema"] + 1):
+        text, tin, tout = _call(adapter, role, model, system, prompt, schema, images)
+        if not schema:
+            break
+        try:
+            parsed = schema.model_validate_json(text)
+            break
+        except ValidationError as e:
+            if schema_try == config()["llm"]["max_retries_schema"]:
+                raise
+            prompt = (f"{user}\n\nYour previous output was not valid JSON for the required schema: "
+                      f"{e.errors()[0]['msg'][:200]}. Return complete, valid JSON; if it was cut off, "
+                      "use fewer or shorter claims.")
+    _db().execute("insert or replace into cache values (?, ?, ?)",
+                  (key, json.dumps({"text": text, "in": tin, "out": tout}), datetime.now(UTC).isoformat()))
+    _db().commit()
+    return LLMResult(text, parsed, model, tin, tout, cached=False)
+
+
+def _call(adapter, role: str, model: str, system: str, user: str, schema, images) -> tuple[str, int, int]:
+    """One traced, counted provider call; transient errors (5xx, overload) are retried with back-off."""
     _check_quota(model)
     with tracing.generation(role, model, system, user) as gen:
         attempts = config()["llm"]["attempts"]
@@ -150,10 +182,4 @@ def generate(role: str, system: str, user: str, schema: type[BaseModel] | None =
                 time.sleep(2 ** (attempt + 1))
         gen.update(output=text, usage_details={"input": tin, "output": tout})
     _record(model, tin + tout)
-    parsed = None
-    if schema:
-        parsed = schema.model_validate_json(text)  # validation errors go back to the caller for a retry
-    _db().execute("insert or replace into cache values (?, ?, ?)",
-                  (key, json.dumps({"text": text, "in": tin, "out": tout}), datetime.now(UTC).isoformat()))
-    _db().commit()
-    return LLMResult(text, parsed, model, tin, tout, cached=False)
+    return text, tin, tout

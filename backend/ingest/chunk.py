@@ -223,7 +223,9 @@ def figure_chunks(b: "Builder", figures: list[dict], section_of: dict[int, str],
                figure_id=f["figure_id"], header=False)
 
 
-def chunk(parsed: dict, ticker: str, year: int, figures: list[dict] | None = None) -> list[dict]:
+def chunk(parsed: dict, ticker: str, year: int, figures: list[dict] | None = None,
+          strategy: str | None = None) -> list[dict]:
+    """`strategy` "page" forces per-page chunking (the ablation); by default sections, or pages without headings."""
     pages, figures = parsed["pages"], figures or []
     skip = running_lines(pages)
     for p in pages:
@@ -235,7 +237,7 @@ def chunk(parsed: dict, ticker: str, year: int, figures: list[dict] | None = Non
     has_structure = bool(parsed["toc"]) or any(
         heading_level(ln, body) for p in pages for c in p["columns"] for ln in c["lines"]
     )
-    chunker = "section" if has_structure else "page"
+    chunker = strategy or ("section" if has_structure else "page")
     b = Builder(parsed["doc_id"], ticker, year)
     streams: dict[str, Stream] = {}
     heads: dict[str, list[str]] = {}  # per language stream: [major, sub] heading in force, carried across pages
