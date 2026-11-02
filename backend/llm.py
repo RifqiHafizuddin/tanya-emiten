@@ -14,6 +14,7 @@ from functools import cache
 import requests
 from pydantic import BaseModel
 
+from backend import tracing
 from backend.config import ROOT, config, env
 
 DB_PATH = ROOT / "data" / "llm.sqlite"
@@ -66,8 +67,12 @@ def _record(model: str, tokens: int) -> None:
 class GeminiAdapter:
     def __init__(self, api_key: str):
         from google import genai
+        from google.genai import types
 
-        self.client = genai.Client(api_key=api_key)
+        # One attempt per call, 30 s each: generate() already retries, and the SDK's own retries nested inside
+        # those let a single question hang for minutes while Gemini was overloaded.
+        self.client = genai.Client(api_key=api_key, http_options=types.HttpOptions(
+            timeout=30_000, retry_options=types.HttpRetryOptions(attempts=1)))
 
     def generate(self, model: str, system: str, user: str, schema: type[BaseModel] | None, images: list[bytes]):
         from google.genai import types
@@ -131,16 +136,18 @@ def generate(role: str, system: str, user: str, schema: type[BaseModel] | None =
             return LLMResult(v["text"], schema.model_validate_json(v["text"]) if schema else None, model,
                              v["in"], v["out"], cached=True)
     _check_quota(model)
-    for attempt in range(3):
-        try:
-            text, tin, tout = adapter.generate(model, system, user, schema, list(images))
-            break
-        except QuotaExceeded:
-            raise
-        except Exception as e:  # transient 5xx/overload: back off, then give up loudly
-            if attempt == 2 or "429" in str(e) and "quota" in str(e).lower():
+    with tracing.generation(role, model, system, user) as gen:
+        for attempt in range(3):
+            try:
+                text, tin, tout = adapter.generate(model, system, user, schema, list(images))
+                break
+            except QuotaExceeded:
                 raise
-            time.sleep(2 ** (attempt + 1))
+            except Exception as e:  # transient 5xx/overload: back off, then give up loudly
+                if attempt == 2 or "429" in str(e) and "quota" in str(e).lower():
+                    raise
+                time.sleep(2 ** (attempt + 1))
+        gen.update(output=text, usage_details={"input": tin, "output": tout})
     _record(model, tin + tout)
     parsed = None
     if schema:

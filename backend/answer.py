@@ -25,6 +25,7 @@ ADVICE = re.compile(
     re.I,
 )
 NUMBER = re.compile(r"\d[\d.,]*")
+YEAR = re.compile(r"(19|20)\d\d")
 IMAGE_KINDS = ("chart", "diagram")  # D56: only these have crops; tables are text chunks
 
 
@@ -89,6 +90,9 @@ def verify(ans: Answer, hits: list[dict], lang: str) -> tuple[list[Claim], list[
             problems.append("quote is not an exact substring of the cited chunk")
         quote_numbers = {n.strip(".,") for n in NUMBER.findall(c.quote)}
         stray = [n.strip(".,") for n in NUMBER.findall(c.text) if n.strip(".,") not in quote_numbers]
+        # O6: a year may come from anywhere in a cited chunk (its header or table columns name the period).
+        stray = [n for n in stray if not (YEAR.fullmatch(n) and any(
+            re.search(rf"(?<!\d){n}(?!\d)", h["context"]) for h in cited))]
         if stray:
             problems.append(f"numbers {stray} are not in the quote")
         if problems:
@@ -134,6 +138,12 @@ def respond(question: str, on_step: Callable[[dict], None] = lambda step: None) 
                         "tahan, atau target harga."}[q.lang]
         return {**base, "refusal": True, "refusal_reason": reason, "claims": [], "figures": [], "retrieved": [],
                 "checks": {"advice_rule": True}, "repair_used": False, "latency_ms": int((time.time() - t0) * 1000)}
+
+    gate = coverage_message(q, *coverage())
+    if gate:  # no search, no LLM call: the question only names companies outside the library
+        return {**base, "refusal": True, "refusal_reason": gate, "claims": [], "figures": [], "retrieved": [],
+                "checks": {"coverage": {"not_loaded": q.tickers, "unknown": q.unknown}},
+                "repair_used": False, "latency_ms": int((time.time() - t0) * 1000)}
 
     on_step({"step": "searching", "tickers": q.tickers, "years": q.years})
     q, hits = retrieval.retrieve(question, translated_terms(question))
@@ -182,24 +192,62 @@ def respond(question: str, on_step: Callable[[dict], None] = lambda step: None) 
     }
 
 
+_coverage: dict = {"at": 0.0}
+
+
+def coverage() -> tuple[dict[str, str], dict[str, str]]:
+    """(tickers with an indexed annual report -> name, every LQ45 ticker -> name). Re-read every 10 minutes:
+    reports are indexed while the API runs."""
+    if time.time() - _coverage["at"] > 600:
+        from backend.db import pooled
+
+        with pooled() as conn:
+            names = dict(conn.execute("select ticker, name from companies"))
+            covered = {t for (t,) in conn.execute(
+                "select distinct ticker from documents where doc_type = 'annual_report'")}
+        _coverage.update(at=time.time(), covered={t: names.get(t, t) for t in covered}, names=names)
+    return _coverage["covered"], _coverage["names"]
+
+
+def coverage_message(q: retrieval.Query, covered: dict[str, str], names: dict[str, str]) -> str | None:
+    """Coverage gate (owner, 2026-10-26): when a question names companies but none of them is in the library, say
+    so instead of searching every report. Unknown tickers are four-capital words that are not LQ45 tickers."""
+    missing = [t for t in q.tickers if t not in covered]
+    if any(t in covered for t in q.tickers) or not (missing or q.unknown):
+        return None
+    listing = ", ".join(sorted(covered))
+    label = " & ".join(f"{names[t]} ({t})" if t in names else t for t in (missing or q.unknown))
+    many = len(missing or q.unknown) > 1
+    if q.lang == "id":
+        head = (f"{label} termasuk LQ45, tetapi laporan tahunan FY2025-nya belum ada di perpustakaan saya."
+                if missing else f"{label} bukan perusahaan yang saya cakup.")
+        return f"{head} Saya bisa menjawab dari laporan tahunan FY2025: {listing}."
+    if missing:
+        head = (f"{label} are in LQ45, but their FY2025 annual reports aren't in my library yet." if many
+                else f"{label} is in LQ45, but its FY2025 annual report isn't in my library yet.")
+    else:
+        head = f"{label} {'aren' if many else 'isn'}'t one of the companies I cover."
+    return f"{head} I can answer from the FY2025 annual reports of: {listing}."
+
+
 def _no_support(lang: str) -> str:
     return {"en": "I couldn't find support for this in the annual reports I have.",
             "id": "Saya tidak menemukan dukungan untuk pertanyaan ini di laporan tahunan yang tersedia."}[lang]
 
 
 def _sources(doc_ids: list[str]) -> dict[str, str]:
-    from backend.db import connect
+    from backend.db import pooled
 
-    with connect() as conn:
+    with pooled() as conn:
         return dict(conn.execute("select doc_id, source_url from documents where doc_id = any(%s)", [doc_ids]))
 
 
 def _figures(ids: list[str]) -> list[dict]:
     if not ids:
         return []
-    from backend.db import connect
+    from backend.db import pooled
 
-    with connect() as conn:
+    with pooled() as conn:
         rows = conn.execute(
             """select f.figure_id, f.page_no, f.kind, f.caption, f.storage_path, d.source_url, d.ticker
                from figures f join documents d using (doc_id) where f.figure_id = any(%s)""", [ids]).fetchall()

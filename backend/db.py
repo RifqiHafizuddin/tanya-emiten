@@ -1,4 +1,5 @@
 """Postgres connection and a minimal numbered-SQL migrations runner."""
+from functools import cache
 from pathlib import Path
 
 import psycopg
@@ -12,6 +13,23 @@ MIGRATIONS = Path(__file__).parent / "migrations"
 def connect(url_var: str = "DATABASE_URL", **kwargs) -> psycopg.Connection:
     # Pooled URI (Neon, D54); prepare_threshold=None because poolers can drop prepared statements.
     return retry(lambda: psycopg.connect(env(url_var), connect_timeout=15, prepare_threshold=None, **kwargs))
+
+
+@cache
+def pool():
+    """Connections kept open for the request path. Neon (Singapore) is far from the Space, and a fresh TLS connection
+    per query cost about 1 s each (traces, 2026-11-02). `check` replaces a connection Neon closed while idle."""
+    from psycopg_pool import ConnectionPool
+
+    return ConnectionPool(env("DATABASE_URL"), min_size=1, max_size=4, max_idle=240, name="api",
+                          kwargs={"connect_timeout": 15, "prepare_threshold": None},
+                          check=ConnectionPool.check_connection)
+
+
+def pooled():
+    """`with pooled() as conn:` like `connect()`: commits on success, rolls back on error, then returns the
+    connection to the pool instead of closing it."""
+    return pool().connection()
 
 
 def migrate() -> list[str]:

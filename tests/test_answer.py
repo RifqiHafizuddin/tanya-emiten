@@ -1,4 +1,5 @@
-from backend.answer import ADVICE, Answer, Claim, FigureRef, data_blocks, normalize, verify
+from backend.answer import ADVICE, Answer, Claim, FigureRef, coverage_message, data_blocks, normalize, verify
+from backend.retrieval import understand
 
 HITS = [
     {"chunk_id": "BBRI-AR-2025-00010", "figure_id": None, "kind": "text",
@@ -31,6 +32,16 @@ def test_number_outside_quote_is_dropped():
               quote="Cost of credit rose to 3.2% in 2025")
     kept, _, errors = verify(answer(c), HITS, "en")
     assert kept == [] and "4.5" in errors[0]
+
+
+def test_year_from_the_cited_chunk_is_allowed_but_not_other_years_or_figures():
+    def errors_for(text):
+        c = Claim(text=text, chunk_ids=["BBRI-AR-2025-00010"], quote="Cost of credit rose to 3.2%")
+        return verify(answer(c), HITS, "en")[2]
+
+    assert errors_for("Credit cost rose to 3.2% in 2025.") == []  # 2025 is in the chunk, not the quote
+    assert "2023" in errors_for("Credit cost rose to 3.2% in 2023.")[0]
+    assert "88" in errors_for("Credit cost rose to 3.2% (page 88).")[0]  # only years get this allowance
 
 
 def test_unknown_chunk_and_figure_are_rejected():
@@ -78,3 +89,19 @@ def test_tables_have_no_image_so_they_are_not_figures():
 def test_figures_without_claims_are_not_an_answer():
     _, _, errors = verify(answer(figures=[FigureRef(figure_id="BBRI-25-p212-c1", why="w")]), HITS, "en")
     assert any("no claims" in e for e in errors)
+
+
+COVERED = {"BBCA": "Bank Central Asia"}
+NAMES = {"BBCA": "Bank Central Asia", "ASII": "Astra International"}
+
+
+def test_coverage_gate_names_the_gap_and_lists_what_is_covered():
+    unknown = coverage_message(understand("whats your take on DOID?"), COVERED, NAMES)
+    assert unknown.startswith("DOID isn't one of the companies I cover") and "BBCA" in unknown
+    not_loaded = coverage_message(understand("Berapa laba bersih Astra tahun 2025?"), COVERED, NAMES)
+    assert not_loaded.startswith("Astra International (ASII) termasuk LQ45") and "BBCA" in not_loaded
+
+
+def test_coverage_gate_stays_out_when_a_covered_company_or_no_company_is_named():
+    assert coverage_message(understand("BBCA vs DOID"), COVERED, NAMES) is None
+    assert coverage_message(understand("Which banks mention digital lending?"), COVERED, NAMES) is None

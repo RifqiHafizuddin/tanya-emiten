@@ -1,4 +1,21 @@
-from backend.ingest.fetch import BLOCKED_HOSTS, Polite, links, score_report_pdf
+import pymupdf
+
+from backend.ingest.fetch import BLOCKED_HOSTS, Polite, links, looks_like_annual_report, score_report_pdf
+
+
+def make_pdf(path, cover: str, inside: str):
+    doc = pymupdf.open()
+    for i in range(90):
+        doc.new_page().insert_text((72, 72), cover if i == 0 else inside if i >= 2 else "")
+    doc.save(path)
+    return path
+
+
+def test_a_sustainability_report_that_mentions_the_annual_report_is_rejected(tmp_path):
+    sr = make_pdf(tmp_path / "sr.pdf", "Laporan Keberlanjutan 2025 Sustainability Report", "see Laporan Tahunan 2025")
+    ar = make_pdf(tmp_path / "ar.pdf", "Laporan Tahunan 2025 Annual Report", "Sustainability Report 2025")
+    assert not looks_like_annual_report(sr, 2025)
+    assert looks_like_annual_report(ar, 2025)
 
 
 def test_links_resolves_relative_and_skips_mailto():

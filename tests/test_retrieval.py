@@ -38,3 +38,24 @@ def test_company_names_are_a_filter_not_search_terms():
 
 def test_letter_digit_terms_also_match_the_spaced_form():
     assert _tsquery(["cet1", "ratio"]) == "(cet1 | cet <-> 1) | ratio"
+
+
+def test_ticker_shaped_words_outside_lq45_are_flagged_but_acronyms_and_shouting_are_not():
+    assert understand("whats your take on DOID?").unknown == ["DOID"]
+    assert understand("BBCA vs DOID").unknown == ["DOID"]
+    assert understand("Berapa rasio CASA BBCA?").unknown == []  # finance acronym
+    assert understand("WHAT IS BBCA NPL").unknown == []  # all caps: every word would look like a ticker
+
+
+def test_possessive_names_resolve_with_or_without_apostrophe():
+    assert understand("what do you think of GOTOs projection").tickers == ["GOTO"]
+    assert understand("What is GOTO's revenue?").tickers == ["GOTO"]
+    assert understand("Alfamart’s store count").tickers == ["AMRT"]
+
+
+def test_outlook_questions_search_outlook_vocabulary_and_drop_opinion_words():
+    q = understand("what do you think of GOTOs projection")
+    assert q.tickers == ["GOTO"] and {"outlook", "prospek", "targets", "2026"} <= set(q.terms)
+    assert not {"you", "think"} & set(q.terms)
+    assert "outlook" not in understand("Berapa laba bersih BBCA?").terms
+    assert "outlook" not in understand("targeted marketing spend").terms

@@ -51,7 +51,7 @@ llm:
     gemini-3.1-flash-lite: 450   # limit appears in AI Studio after first use; conservative until recorded
     qwen/qwen3.8-27b: 900        # Groq 1,000 RPD
     gemma-4-31b-it: 10000        # 14.4K RPD
-  prompt_versions: {system: 2, router: 1, planner: 1, entity: 1, translate: 1, judge: 1}
+  prompt_versions: {system: 4, router: 1, planner: 1, entity: 1, translate: 1, judge: 1}
   temperature: 0
   max_output_tokens: 900
   max_retries_schema: 2
@@ -62,6 +62,11 @@ agent:                           # D35, D36
 limits:
   questions_per_visitor_per_day: 20
   global_questions_per_day: 250  # answer model: 500 RPD free tier, ~1.5 calls per question
+  cached_per_visitor_per_day: 100   # cached answers cost no LLM call but still write a conversation + trace
+  cache_days: 7
+  request_timeout_seconds: 90
+  max_body_bytes: 16384
+  cors_origins: ["https://tanya-emiten.vercel.app", "http://localhost:3000"]
 eval:
   pr_subset_size: 25
 forecast:                        # MVP 4

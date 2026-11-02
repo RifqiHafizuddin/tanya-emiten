@@ -6,14 +6,27 @@ from functools import cache
 import yaml
 
 from backend.config import ROOT, config
-from backend.db import connect
+from backend.db import pooled
 from backend.ingest.parse_pdf import detect_lang
 
 STOP = set(
     "the a an of to in for on and or is are was were be by with what why how which who when does did do its it"
     " this that from as at than vs versus about between"
     " yang dan di ke dari untuk pada apa apakah mengapa kenapa bagaimana berapa siapa kapan adalah ini itu"
-    " dengan atau tahun dalam oleh se bagi tentang antara".split()
+    " dengan atau tahun dalam oleh se bagi tentang antara"
+    # Opinion wording ("what's your take on...", owner 2026-10-26): it says how to answer, not what to find.
+    " you your think take opinion view whats kamu anda pendapat pendapatmu pendapatnya menurut menurutmu"
+    " pandangan".split()
+)
+# Outlook questions (owner 2026-10-26): reports call it "outlook", "prospects" or "targets for <next year>", rarely
+# "projection", so these terms (both languages) and the next fiscal year join the lexical search.
+OUTLOOK = re.compile(r"\b(outlook|projections?|projected|prospects?|forecasts?|guidance|targets?|prospek|proyeksi|"
+                     r"prakiraan|sasaran)\b", re.I)
+OUTLOOK_TERMS = ["outlook", "prospects", "prospek", "targets", "target", "guidance", "proyeksi"]
+# Four-letter capitals that are common in annual reports and questions but are not tickers (coverage gate).
+ACRONYMS = set(
+    "BUMN BUMD CASA IFRS PSAK CAGR EBIT RUPS ROAA ROAE NPAT OPEX TKDN PPKM APBN UMKM KPMM BOPO NSFR HQLA TJSL MSCI"
+    " FTSE OECD SBSN FIFA NATO NASA".split()
 )
 
 
@@ -24,6 +37,7 @@ class Query:
     tickers: list[str]
     years: list[int]
     terms: list[str] = field(default_factory=list)
+    unknown: list[str] = field(default_factory=list)  # ticker-shaped words that are not LQ45 tickers, e.g. "DOID"
 
 
 @cache
@@ -32,7 +46,8 @@ def aliases() -> list[tuple[re.Pattern, str]]:
     pairs = [(t, t) for t in data] + [(a, t) for t, names in data.items() for a in names]
     # Longest names first so "Bank Mandiri" wins over "Mandiri" and "Indofood CBP" over "Indofood".
     pairs.sort(key=lambda p: -len(p[0]))
-    return [(re.compile(rf"(?<![\w-]){re.escape(name)}(?![\w-])", re.I), t) for name, t in pairs]
+    # A possessive may follow, with or without the apostrophe ("GOTO's", "GOTOs").
+    return [(re.compile(rf"(?<![\w-]){re.escape(name)}(?:['’]?s)?(?![\w-])", re.I), t) for name, t in pairs]
 
 
 def understand(question: str) -> Query:
@@ -51,7 +66,13 @@ def understand(question: str) -> Query:
     # Terms from what is left after removing company names: the company is a filter, and its name is in every one
     # of its chunks' headers, so as a term it only adds noise (ts_rank_cd has no IDF to discount it).
     terms = [w for w in re.findall(r"[\w&-]{2,}", rest.lower()) if w not in STOP and not w.isdigit()]
-    return Query(question, "en" if lang == "mixed" else lang, tickers, years, terms)
+    if OUTLOOK.search(rest):
+        terms += [t for t in OUTLOOK_TERMS + [str(max(fy) + 1)] if t not in terms]
+    # In all-caps text ("WHAT IS ...") every word looks like a ticker; capitalised stopwords give it away.
+    shouting = any(w.isupper() and w.lower() in STOP for w in re.findall(r"[A-Za-z]{2,}", question))
+    unknown = [] if shouting else list(dict.fromkeys(
+        w for w in re.findall(r"(?<![\w-])[A-Z]{4}(?![\w-])", rest) if w not in ACRONYMS))
+    return Query(question, "en" if lang == "mixed" else lang, tickers, years, terms, unknown)
 
 
 def _tsquery(terms: list[str]) -> str:
@@ -164,12 +185,18 @@ def expand_and_pack(conn, hits: list[dict]) -> list[dict]:
 
     cfg_r, n = config()["retrieval"], config()["chunking"]["expand_neighbours"]
     budget, packed, used = cfg_r["context_token_budget"], [], 0
-    for h in hits[: cfg_r["final_k"]]:
-        neighbours = conn.execute(
-            f"""select {COLUMNS} from chunks where doc_id = %s and kind = 'text' and seq between %s and %s
-                and seq <> %s and section_path is not distinct from %s and lang is not distinct from %s order by seq""",
-            [h["doc_id"], h["seq"] - n, h["seq"] + n, h["seq"], h["section_path"], h["lang"]],
-        ).fetchall() if h["kind"] == "text" else []
+    top = hits[: cfg_r["final_k"]]
+    # Every hit's neighbours in one round trip (one query per hit was ~0.25 s each from the Space).
+    wanted = [(h["doc_id"], s) for h in top if h["kind"] == "text"
+              for s in range(h["seq"] - n, h["seq"] + n + 1) if s != h["seq"]]
+    found = {(r[1], r[7]): r for r in conn.execute(
+        f"""select {COLUMNS} from chunks where kind = 'text'
+            and (doc_id, seq) in (select * from unnest(%s::text[], %s::int[]))""",
+        [[d for d, _ in wanted], [s for _, s in wanted]]).fetchall()} if wanted else {}
+    for h in top:
+        neighbours = [r for s in range(h["seq"] - n, h["seq"] + n + 1) if (r := found.get((h["doc_id"], s)))
+                      and s != h["seq"] and r[6] == h["section_path"] and r[9] == h["lang"]] \
+            if h["kind"] == "text" else []
         before = [r[11].split("\n", 1)[-1] for r in neighbours if r[7] < h["seq"]]
         after = [r[11].split("\n", 1)[-1] for r in neighbours if r[7] > h["seq"]]
         cost = ntok(h["text"])
@@ -195,7 +222,7 @@ def retrieve(question: str, extra_terms: list[str] = (), method: str = "hybrid",
     q = understand(question)
     k = config()["retrieval"]["rrf_k"]
     vector = query_vector(question) if method != "lexical" else None
-    with connect() as conn, conn.transaction():
+    with pooled() as conn, conn.transaction():
         rankings = []
         for scope in ([[t] for t in q.tickers] or [None]):
             if method != "dense":

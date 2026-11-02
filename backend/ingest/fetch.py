@@ -183,10 +183,14 @@ def looks_like_annual_report(path: Path, year: int) -> bool:
         with open_pdf(path) as pdf:
             if len(pdf.pages) < 80:
                 return False
+            cover = " ".join((p.extract_text() or "") for p in pdf.pages[:2])
             opening = " ".join((p.extract_text() or "") for p in pdf.pages[:8])
     except Exception:
         return False
     title = r"(annual\s+report|laporan\s+tahunan)"
+    # UNTR's 2025 sustainability report mentions "Laporan Tahunan 2025" inside; its cover names only the SR.
+    if re.search(r"sustainability\s+report|laporan\s+keberlanjutan", cover, re.I) and not re.search(title, cover, re.I):
+        return False
     return bool(re.search(rf"{title}[^0-9]{{0,60}}{year}|{year}[^0-9]{{0,60}}{title}", opening, re.I))
 
 
