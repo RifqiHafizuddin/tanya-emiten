@@ -105,3 +105,16 @@ def test_coverage_gate_names_the_gap_and_lists_what_is_covered():
 def test_coverage_gate_stays_out_when_a_covered_company_or_no_company_is_named():
     assert coverage_message(understand("BBCA vs DOID"), COVERED, NAMES) is None
     assert coverage_message(understand("Which banks mention digital lending?"), COVERED, NAMES) is None
+
+
+def test_slow_translation_is_skipped_after_the_wait_but_a_fast_one_is_used(monkeypatch):
+    import time
+
+    from backend import answer as a
+
+    monkeypatch.setitem(a.config()["agent"], "translate_wait_seconds", 0.2)
+    monkeypatch.setattr(a, "translated_terms", lambda q: time.sleep(1) or ["laba"])
+    t0 = time.time()
+    assert a.translation("profit?")() == [] and time.time() - t0 < 0.5
+    monkeypatch.setattr(a, "translated_terms", lambda q: ["laba"])
+    assert a.translation("profit?")() == ["laba"]

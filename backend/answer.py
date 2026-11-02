@@ -3,10 +3,12 @@
 Guardrails enforced here in code: advice refusal (5), every claim carries a verbatim quote from a retrieved chunk (3),
 numbers only inside verified quotes (2), crops only from retrieved figures (4), retrieved text inside data tags (6).
 """
+import contextvars
 import re
 import time
 import unicodedata
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from html import escape
 
 from pydantic import BaseModel, Field
@@ -120,6 +122,24 @@ def translated_terms(question: str) -> list[str]:
         return []
 
 
+_translator = ThreadPoolExecutor(max_workers=4, thread_name_prefix="translate")
+
+
+def translation(question: str) -> Callable[[], list[str]]:
+    """Start `translated_terms` in the background, inside the current trace, and return a getter that waits for it
+    until `translate_wait_seconds` after the start, then searches without it (A12: the small model took 2-29 s)."""
+    future = _translator.submit(contextvars.copy_context().run, translated_terms, question)
+    deadline = time.time() + config()["agent"]["translate_wait_seconds"]
+
+    def terms() -> list[str]:
+        try:
+            return future.result(timeout=max(0.0, deadline - time.time()))
+        except TimeoutError:
+            return []
+
+    return terms
+
+
 def crop_url(storage_path: str) -> str:
     return f"{env('SUPABASE_URL').rstrip('/')}/storage/v1/object/public/crops/{storage_path}"
 
@@ -146,7 +166,7 @@ def respond(question: str, on_step: Callable[[dict], None] = lambda step: None) 
                 "repair_used": False, "latency_ms": int((time.time() - t0) * 1000)}
 
     on_step({"step": "searching", "tickers": q.tickers, "years": q.years})
-    q, hits = retrieval.retrieve(question, translated_terms(question))
+    q, hits = retrieval.retrieve(question, translation(question))
     if not hits:
         return {**base, "refusal": True, "refusal_reason": _no_support(q.lang), "claims": [], "figures": [],
                 "retrieved": [], "checks": {}, "repair_used": False, "latency_ms": int((time.time() - t0) * 1000)}

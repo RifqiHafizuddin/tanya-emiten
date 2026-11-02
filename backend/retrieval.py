@@ -1,5 +1,6 @@
 """Hybrid retrieval (D16, D31-D34, §6.3): understand -> filter -> lexical + dense -> RRF -> clean up -> expand/pack."""
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import cache
 
@@ -38,6 +39,7 @@ class Query:
     years: list[int]
     terms: list[str] = field(default_factory=list)
     unknown: list[str] = field(default_factory=list)  # ticker-shaped words that are not LQ45 tickers, e.g. "DOID"
+    phrases: list[str] = field(default_factory=list)  # adjacent search words, e.g. "net interest margin"
 
 
 @cache
@@ -57,7 +59,7 @@ def understand(question: str) -> Query:
         if pattern.search(rest):
             if ticker not in tickers:
                 tickers.append(ticker)
-            rest = pattern.sub(" ", rest)  # a matched name must not match again as a shorter alias
+            rest = pattern.sub(" | ", rest)  # must not match again as a shorter alias; "|" also ends a phrase
     years = sorted({int(y) for y in re.findall(r"(?<!\d)(20[12]\d)(?!\d)", question)})
     fy = config()["annual_reports"]["fiscal_years"]
     years = [y for y in years if y in fy] or fy
@@ -68,11 +70,21 @@ def understand(question: str) -> Query:
     terms = [w for w in re.findall(r"[\w&-]{2,}", rest.lower()) if w not in STOP and not w.isdigit()]
     if OUTLOOK.search(rest):
         terms += [t for t in OUTLOOK_TERMS + [str(max(fy) + 1)] if t not in terms]
+    # Runs of two or more adjacent search words: chunks with the whole phrase rank first in the lexical search,
+    # since its single words ("net", "interest") are on most pages of a bank's report (BBCA NIM, 2026-11-02).
+    phrases, run = [], []
+    for w in re.findall(r"[\w&-]+|[^\w\s]", rest.lower()) + ["."]:
+        if re.fullmatch(r"[\w&-]{2,}", w) and w not in STOP and not w.isdigit():
+            run.append(w)
+        else:
+            if len(run) >= 2:
+                phrases.append(" ".join(run))
+            run = []
     # In all-caps text ("WHAT IS ...") every word looks like a ticker; capitalised stopwords give it away.
     shouting = any(w.isupper() and w.lower() in STOP for w in re.findall(r"[A-Za-z]{2,}", question))
     unknown = [] if shouting else list(dict.fromkeys(
         w for w in re.findall(r"(?<![\w-])[A-Z]{4}(?![\w-])", rest) if w not in ACRONYMS))
-    return Query(question, "en" if lang == "mixed" else lang, tickers, years, terms, unknown)
+    return Query(question, "en" if lang == "mixed" else lang, tickers, years, terms, unknown, phrases)
 
 
 def _tsquery(terms: list[str]) -> str:
@@ -85,6 +97,11 @@ def _tsquery(terms: list[str]) -> str:
         elif t:
             out.append(t)
     return " | ".join(out)
+
+
+def _phrase_query(phrases: list[str]) -> str:
+    words = [[re.sub(r"[^\w]", "", w) for w in p.split()] for p in phrases]
+    return " | ".join(f"({' <-> '.join(ws)})" for ws in words if all(ws))
 
 
 def _filters(q: Query, tickers: list[str] | None) -> tuple[str, list]:
@@ -101,11 +118,13 @@ def lexical(conn, q: Query, tickers: list[str] | None, extra_terms: list[str] = 
     if not tsq:
         return []
     where, args = _filters(q, tickers)
+    pq = _phrase_query(q.phrases)
+    phrase_first = "to_tsvector('simple', text) @@ to_tsquery('simple', %s) desc," if pq else ""
     return conn.execute(
         f"""select chunk_id from chunks, to_tsquery('simple', %s) tq
             where to_tsvector('simple', text) @@ tq and {where}
-            order by ts_rank_cd(to_tsvector('simple', text), tq) desc limit %s""",
-        [tsq, *args, k],
+            order by {phrase_first} ts_rank_cd(to_tsvector('simple', text), tq) desc limit %s""",
+        [tsq, *args, *([pq] if pq else []), k],
     ).fetchall()
 
 
@@ -214,21 +233,25 @@ def expand_and_pack(conn, hits: list[dict]) -> list[dict]:
     return packed
 
 
-def retrieve(question: str, extra_terms: list[str] = (), method: str = "hybrid",
+def retrieve(question: str, extra_terms: list[str] | Callable[[], list[str]] = (), method: str = "hybrid",
              pack: bool = True) -> tuple[Query, list[dict]]:
     """Full pipeline. Entity split (D31): one retrieval per resolved ticker, merged; no ticker -> all companies
-    with the per-company cap (D33). `extra_terms` carries the translated query terms for the lexical side.
+    with the per-company cap (D33). `extra_terms` carries the translated query terms for the lexical side; a
+    callable is called only after the embedding and dense searches, so a translation still running overlaps them.
     `method` (hybrid | lexical | dense) and `pack=False` (cleaned ranking, no expansion) exist for the eval."""
     q = understand(question)
     k = config()["retrieval"]["rrf_k"]
     vector = query_vector(question) if method != "lexical" else None
     with pooled() as conn, conn.transaction():
+        scopes = [[t] for t in q.tickers] or [None]
+        by_dense = [[r[0] for r in dense(conn, vector, q, s)] for s in scopes] if method != "lexical" else []
+        terms = extra_terms() if callable(extra_terms) and method != "dense" else extra_terms
         rankings = []
-        for scope in ([[t] for t in q.tickers] or [None]):
+        for i, scope in enumerate(scopes):  # same order as before, so RRF ties break the same way
             if method != "dense":
-                rankings.append([r[0] for r in lexical(conn, q, scope, extra_terms)])
+                rankings.append([r[0] for r in lexical(conn, q, scope, terms)])
             if method != "lexical":
-                rankings.append([r[0] for r in dense(conn, vector, q, scope)])
+                rankings.append(by_dense[i])
         ranked = rrf(*rankings, k=k)
         rows = _rows(conn, [c for c, _ in ranked])
         hits = clean(ranked, rows, q, unscoped=not q.tickers)

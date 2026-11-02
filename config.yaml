@@ -55,10 +55,15 @@ llm:
   temperature: 0
   max_output_tokens: 900
   max_retries_schema: 2
+  # A12: a healthy answer takes 1-4 s (a repair ~8 s). Overloaded Gemini used to cost 3 x 30 s = 94 s before the
+  # error, past the 90 s request deadline. Now at most 15 + 2 + 15 s per call.
+  timeout_seconds: 15
+  attempts: 2
 agent:                           # D35, D36
   max_tool_calls: 4
   max_replans: 1
   max_repairs: 1
+  translate_wait_seconds: 3      # A12: search without the translated terms if the small model is slower than this
 limits:
   questions_per_visitor_per_day: 20
   global_questions_per_day: 250  # answer model: 500 RPD free tier, ~1.5 calls per question

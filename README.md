@@ -88,9 +88,13 @@ questions over all 29 companies (94 answerable, 15 unanswerable, 12 investment-a
 
 | Retrieval (94 answerable questions) | recall@6 | recall@12 | MRR | nDCG@6 | recall@6, Bahasa |
 |---|---|---|---|---|---|
-| Lexical only | 0.766 | 0.862 | 0.479 | 0.371 | 0.787 |
+| Lexical only | 0.819 | 0.904 | 0.550 | 0.438 | 0.830 |
 | Dense only | 0.702 | 0.777 | 0.537 | 0.412 | 0.702 |
-| **Hybrid** | **0.862** | **0.947** | **0.653** | **0.506** | **0.787** |
+| **Hybrid** | **0.894** | **0.947** | **0.684** | **0.547** | **0.830** |
+
+Retrieval re-run later on 11-02 after lexical search started ranking exact-phrase matches first ("net interest
+margin"); before that change hybrid was 0.862 / 0.947 / 0.653 / 0.506 / 0.787. The answer rows below are from the
+earlier full run.
 
 | Answers (121 questions) | Result | Target |
 |---|---|---|

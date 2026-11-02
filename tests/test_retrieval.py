@@ -59,3 +59,10 @@ def test_outlook_questions_search_outlook_vocabulary_and_drop_opinion_words():
     assert not {"you", "think"} & set(q.terms)
     assert "outlook" not in understand("Berapa laba bersih BBCA?").terms
     assert "outlook" not in understand("targeted marketing spend").terms
+
+
+def test_adjacent_search_words_form_phrases_broken_by_names_stopwords_and_punctuation():
+    assert understand("What was BBCA's net interest margin in 2025?").phrases == ["net interest margin"]
+    assert understand("Berapa laba bersih Telkom, dan rasio NPL?").phrases == ["laba bersih", "rasio npl"]
+    assert understand("BBCA BBRI total assets").phrases == ["total assets"]
+    assert understand("What is CET1?").phrases == []
